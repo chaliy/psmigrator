@@ -1,12 +1,13 @@
 push-location
 $here = (Split-Path -parent $MyInvocation.MyCommand.Definition)
-import-module -name $here\PsMigrator\PsMigrator.psm1
+Write-Host $here
+set-location $here
+import-module -name .\PsMigrator\PsMigrator.psm1
 
 push-location
-set-location $here\TestMigrations\SimpleMigration
+set-location .\TestMigrations\SimpleMigration
 start-migration -Verbose
-#remove-item $here\TestMigrations\SimpleMigration\.PsMigrator
-push-location
-
+remove-item .\.PsMigrator -ErrorAction Continue
+pop-location
 
 pop-location

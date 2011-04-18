@@ -3,42 +3,44 @@ function Start-Migration {
 Param(
     
 )
-    function ConvertTo-StringData($Data)
-    { 
-        $buffer = New-Object Text.StringBuilder
-        foreach($key in $Data.Keys){    
-            $buffer.AppendLine( $key + "=" + $Data[$key] ) | Out-Null  
-        }        
-        $buffer.ToString()   
-    }
-    
-    
-    $state = @{}
-    if (Test-Path .PsMigrator) {        
-        Write-Verbose "Load migration state from .PsMigrator file"
-        $psMigratorFullPath = Resolve-Path .PsMigrator
-        $state = ConvertFrom-StringData ([IO.File]::ReadAllText($psMigratorFullPath))    
-    }
-    $lastMigration = $null
-    if ($state.LastMigration){        
-        $lastMigration = $state.LastMigration
-    }
-    
-    $runNextMigration = ( $lastMigration -eq $null )
-    Get-ChildItem *.ps1 | sort Name | %{
-        if ($runNextMigration){
-            Write-Host "Running migration $_.Name"
-            Write-Verbose "Migration full path is $_.FullName"
-            & $_.FullName
-            Write-Verbose "Migration $_.Name compelted"
-            $lastMigration = $_.Name
+
+	function StoreState($state){
+		$buffer = New-Object Text.StringBuilder
+        foreach($key in $state.Keys){			
+            $buffer.AppendLine( $key + "=" + $state[$key] ) | Out-Null  
         }
-        if ($_.Name -eq $lastMigration){
+		Set-Content ".PsMigrator" ( $buffer.ToString() )	
+	}
+	
+	function LoadState(){
+		if (Test-Path .PsMigrator) {       
+			Write-Verbose "Load migration state from .PsMigrator file"
+			$psMigratorFullPath = Resolve-Path .PsMigrator
+			return ConvertFrom-StringData ([IO.File]::ReadAllText($psMigratorFullPath))    
+		}	
+		return @{}
+	}
+   	
+		
+	# Actual execution
+    $state = LoadState
+	    
+    $runNextMigration = ( $state.LastMigration -eq $null )
+    Get-ChildItem *.ps1 | sort Name | %{
+		$migrationName = ($_.Name)
+        if ($runNextMigration){
+            Write-Host "Running migration $migrationName"
+            Write-Verbose "Migration full path is $_"
+            & $_.FullName
+            Write-Verbose "Migration $migrationName compelted"
+            $state.LastMigration = $migrationName
+        }
+        if ($migrationName -eq $state.LastMigration){
             $runNextMigration = $true
         }
     }
     
-    Set-Content .PsMigrator (ConvertTo-StringData @{ LastMigration = $lastMigration } )
+    StoreState $state
     
 <#
 .Synopsis
