@@ -3,7 +3,6 @@ function Start-Migration {
 Param(
     
 )
-
 	function StoreState($state){
 		$buffer = New-Object Text.StringBuilder
         foreach($key in $state.Keys){			
@@ -26,12 +25,18 @@ Param(
     $state = LoadState
 	    
     $runNextMigration = ( $state.LastMigration -eq $null )
-    Get-ChildItem *.ps1 | sort Name | %{
+    Get-ChildItem *.ps1 | where-object {$_.Extension -match ".ps1|.sql" } | sort Name | %{
 		$migrationName = ($_.Name)
         if ($runNextMigration){
             Write-Host "Running migration $migrationName"
-            Write-Verbose "Migration full path is $_"
-            & $_.FullName
+            Write-Verbose "Migration full path is $_"			
+			if ($_.Extension -eq ".sql" ) {
+            	# Let's execute 
+				Import-Module PsSql
+				Invoke-Sql $_.FullName
+			} else {
+				& $_.FullName
+			}
             Write-Verbose "Migration $migrationName compelted"
             $state.LastMigration = $migrationName
         }
